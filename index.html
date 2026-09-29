@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="ro" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patricia Dița - Interactive CV & Network Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- D3.js for Interactive Network Node Graph -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        },
+                        accent: {
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 20px;
+            width: 2px;
+            background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 50%, #e2e8f0 100%);
+        }
+        .dark .timeline-line::before {
+            background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 50%, #334155 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        .badge-active {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .pulse-glow {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+        /* Network Graph Tooltip styling */
+        .node-tooltip {
+            pointer-events: none;
+            transition: opacity 0.15s ease-out;
+        }
+        .graph-node {
+            cursor: pointer;
+            transition: r 0.2s ease, stroke-width 0.2s ease;
+        }
+        .graph-node:hover {
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+        }
+        .graph-link {
+            transition: stroke-opacity 0.2s ease, stroke-width 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300 min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                    PD
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Patricia Dița</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Interactive Visual CV & Network Map</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-4">
+                <!-- View Selector Toggle Buttons -->
+                <div class="hidden sm:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+                    <button id="viewColBtn" onclick="setViewMode('columns')" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-columns"></i>
+                        <span>3-Coloane</span>
+                    </button>
+                    <button id="viewStreamBtn" onclick="setViewMode('stream')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-bars-staggered"></i>
+                        <span>Cronologic</span>
+                    </button>
+                    <button id="viewGraphBtn" onclick="setViewMode('graph')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-nodes text-blue-500"></i>
+                        <span>Hartă Conexiuni</span>
+                    </button>
+                    <button id="viewCareerBtn" onclick="setViewMode('career')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-diagram-project text-emerald-500"></i>
+                        <span>Arbore Cariere</span>
+                    </button>
+                </div>
+
+                <!-- Dark Mode Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all" title="Comută tema">
+                    <i id="themeIcon" class="fa-solid fa-moon"></i>
+                </button>
+
+                <!-- Contact Modal Trigger -->
+                <button onclick="openModal('contactModal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-envelope"></i>
+                    <span class="hidden xs:inline">Contact</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        
+        <!-- Profile Banner Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700/80 shadow-sm mb-8 relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div class="flex flex-col lg:flex-row items-center lg:items-start gap-6 lg:gap-8 relative z-10">
+                <!-- Avatar image with border frame -->
+                <div class="relative group shrink-0">
+                    <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden ring-4 ring-blue-500/20 shadow-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                        <img src="https://placehold.co/300x300/2563eb/ffffff?text=Patricia+Dita" alt="Patricia Dița" class="w-full h-full object-cover">
+                    </div>
+                    <span class="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full border-2 border-white dark:border-slate-800 shadow">
+                        ACTIVĂ
+                    </span>
+                </div>
+
+                <!-- Info summary -->
+                <div class="flex-1 text-center lg:text-left space-y-3">
+                    <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-2">
+                        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Patricia Dița</h2>
+                        <span class="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs px-3 py-1 rounded-full font-semibold">
+                            Lider Tineret & Coordonator Proiecte
+                        </span>
+                    </div>
+
+                    <p class="text-slate-600 dark:text-slate-300 text-sm max-w-3xl leading-relaxed">
+                        Tânără activă, vicepreședinte al Consiliului Elevilor, implicată în management cultural, voluntariat social, marketing și organizare de evenimente de mare anvergură (Chișinău Arena, Ziua Europei, Maratoane).
+                    </p>
+
+                    <!-- Quick Contact Badges -->
+                    <div class="flex flex-wrap justify-center lg:justify-start gap-3 pt-1 text-xs">
+                        <a href="mailto:patydita90@gmail.com" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
+                            <i class="fa-solid fa-envelope text-blue-500"></i>
+                            <span>patydita90@gmail.com</span>
+                        </a>
+                        <a href="tel:+37360317802" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
+                            <i class="fa-solid fa-phone text-emerald-500"></i>
+                            <span>+373 60 317 802</span>
+                        </a>
+                        <span class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60">
+                            <i class="fa-solid fa-location-dot text-rose-500"></i>
+                            <span>Chișinău, Moldova</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Highlight Stats Grid -->
+                <div class="grid grid-cols-2 gap-3 w-full lg:w-auto shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-700/60 lg:pl-8">
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center border border-slate-100 dark:border-slate-800">
+                        <span class="block text-xl font-extrabold text-blue-600 dark:text-blue-400">15+</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Evenimente & Proiecte</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center border border-slate-100 dark:border-slate-800">
+                        <span class="block text-xl font-extrabold text-purple-600 dark:text-purple-400">10+</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Premii & Distincții</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center border border-slate-100 dark:border-slate-800">
+                        <span class="block text-xl font-extrabold text-emerald-600 dark:text-emerald-400">5</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Limbi Cunoscute</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center border border-slate-100 dark:border-slate-800">
+                        <span class="block text-xl font-extrabold text-amber-600 dark:text-amber-400">10 Ani</span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Dans & Arte</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Controls Bar -->
+        <div id="filterControlsCard" class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm mb-8">
+            <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between mb-4">
+                <!-- Search input -->
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Căutare după rol, organizație, cuvinte cheie..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+
+                <!-- Year Filter & Clear Buttons -->
+                <div class="flex items-center gap-2">
+                    <select id="yearFilter" onchange="applyFilters()" class="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="ALL">Toți anii (2014 - Prezent)</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022 & Anterioare</option>
+                    </select>
+
+                    <button onclick="resetFilters()" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-xs font-semibold transition text-slate-600 dark:text-slate-300">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Tag Chips -->
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-2">Filtrează după Tag / Domeniu:</span>
+                <div id="tagContainer" class="flex flex-wrap gap-2">
+                    <!-- Tags generated by JavaScript dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW MODE 1: MULTI-COLUMN TIMELINE -->
+        <div id="multiColumnView" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- COLUMN 1: Experiență & Voluntariat -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col shadow-sm">
+                <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-base">Experiență & Voluntariat</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Liderism, Proiecte & Activism</p>
+                        </div>
+                    </div>
+                    <span id="expCount" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">0</span>
+                </div>
+
+                <div id="expList" class="space-y-4 flex-1">
+                    <!-- Dynamic Experience Cards -->
+                </div>
+            </div>
+
+            <!-- COLUMN 2: Educație & Cursuri -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col shadow-sm">
+                <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="p-2 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-xl">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-base">Educație & Cursuri</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Școli, Instruire & Workshop-uri</p>
+                        </div>
+                    </div>
+                    <span id="eduCount" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">0</span>
+                </div>
+
+                <div id="eduList" class="space-y-4 flex-1">
+                    <!-- Dynamic Education Cards -->
+                </div>
+            </div>
+
+            <!-- COLUMN 3: Realizări, Concursuri & Abilități -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col shadow-sm">
+                <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="p-2 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-base">Realizări & Concursuri</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Premii, Cercetare & Publicații</p>
+                        </div>
+                    </div>
+                    <span id="achieveCount" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">0</span>
+                </div>
+
+                <div id="achieveList" class="space-y-4 flex-1">
+                    <!-- Dynamic Achievement Cards -->
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW MODE 2: CHRONOLOGICAL UNIFIED STREAM -->
+        <div id="streamView" class="hidden bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-blue-600"></i>
+                <span>Fir Cronologic Integrat</span>
+            </h3>
+            <div class="relative timeline-line pl-8 space-y-6" id="streamList">
+                <!-- Single Stream List loaded via JS -->
+            </div>
+        </div>
+
+        <!-- VIEW MODE 3: INTERACTIVE NETWORK GRAPH MAP -->
+        <div id="graphView" class="hidden relative bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-circle-nodes text-blue-600 dark:text-blue-400"></i>
+                        <span>Harta Interactivă de Conexiuni (Network Map)</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Explorează punctele din CV connected prin domenii, competențe și piloni principali. <span class="font-bold text-blue-600 dark:text-blue-400">Treceți cu mouse-ul peste orice punct pentru detalii!</span>
+                    </p>
+                </div>
+
+        <!-- VIEW MODE 4: CAREER ROADMAP TREE MAP -->
+        <div id="careerView" class="hidden relative bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-700">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-emerald-500"></i>
+                        <span>Arborele Interactiv de Cariere (Career Pathways Tree)</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Visualizează direcțiile potențiale de carieră dezvoltate pe baza experiențelor din CV. <span class="font-bold text-emerald-600 dark:text-emerald-400">Apasă pe oricare nod pentru a extinde ramura sau pentru detalii!</span>
+                    </p>
+                </div>
+
+                <!-- Tree Controls -->
+                <div class="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                    <button onclick="expandAllCareerTree()" class="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-100 transition">
+                        <i class="fa-solid fa-expand mr-1"></i> Extinde Tot
+                    </button>
+                    <button onclick="collapseAllCareerTree()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-200 transition">
+                        <i class="fa-solid fa-compress mr-1"></i> Restrânge
+                    </button>
+                    <button onclick="resetCareerTreeZoom()" title="Centrare" class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                        <i class="fa-solid fa-crosshairs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Track Selector Chips -->
+            <div class="flex flex-wrap items-center gap-2 text-xs font-medium mb-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Direcții Strategice:</span>
+                <button onclick="filterCareerTrack('ALL')" id="trackBtnALL" class="career-track-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm">
+                    Toate Direcțiile
+                </button>
+                <button onclick="filterCareerTrack('EV')" id="trackBtnEV" class="career-track-btn px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs hover:bg-blue-100 dark:hover:bg-slate-600 transition">
+                    🎬 Management Cultură & Evenimente
+                </button>
+                <button onclick="filterCareerTrack('MKT')" id="trackBtnMKT" class="career-track-btn px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs hover:bg-purple-100 dark:hover:bg-slate-600 transition">
+                    📣 PR, Social Media & Marketing
+                </button>
+                <button onclick="filterCareerTrack('POL')" id="trackBtnPOL" class="career-track-btn px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs hover:bg-amber-100 dark:hover:bg-slate-600 transition">
+                    🏛️ Politici Publice, NGO & Liderism
+                </button>
+                <button onclick="filterCareerTrack('SCI')" id="trackBtnSCI" class="career-track-btn px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs hover:bg-cyan-100 dark:hover:bg-slate-600 transition">
+                    🔬 Cercetare Științifică & Analytics
+                </button>
+            </div>
+
+            <!-- D3 Tree SVG Container -->
+            <div id="careerTreeContainer" class="w-full h-[600px] bg-slate-950/5 dark:bg-slate-950/40 rounded-xl relative overflow-hidden border border-slate-200/60 dark:border-slate-800 cursor-grab active:cursor-grabbing">
+                <svg id="careerTreeSvg" class="w-full h-full"></svg>
+
+                <!-- Floating Info Panel for Selected Node -->
+                <div id="careerNodePanel" class="absolute bottom-4 right-4 max-w-sm bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none z-20">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <span id="panelLevelBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 uppercase"></span>
+                        <button onclick="closeCareerPanel()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <h4 id="panelTitle" class="font-extrabold text-base text-slate-900 dark:text-white mt-2 leading-tight"></h4>
+                    <p id="panelDesc" class="text-xs text-slate-600 dark:text-slate-300 my-2 leading-relaxed"></p>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/60 space-y-1.5 mb-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase block">Ancorare în CV-ul Actual:</span>
+                        <p id="panelCvBridge" class="text-xs text-blue-600 dark:text-blue-400 font-medium leading-tight"></p>
+                    </div>
+
+                    <div class="space-y-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase block">Competențe Cheie Necesare:</span>
+                        <div id="panelSkills" class="flex flex-wrap gap-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Digital Skills Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <i class="fa-solid fa-laptop-code text-lg"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">Competențe IT & Software</h4>
+                </div>
+                <div class="flex flex-wrap gap-2" id="digitalSkillsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Foreign Languages Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                        <i class="fa-solid fa-language text-lg"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">Limbi Străine</h4>
+                </div>
+                <div class="space-y-3 text-sm" id="languagesList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Soft Skills & Hobbies Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                        <i class="fa-solid fa-heart text-lg"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">Soft Skills & Hobby-uri</h4>
+                </div>
+                <div class="space-y-3" id="softSkillsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail Item Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-700 shadow-2xl transform scale-95 transition-transform duration-200" id="detailModalBox">
+            <div class="flex items-start justify-between border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <div id="modalCategoryIcon" class="w-10 h-10 rounded-xl flex items-center justify-center text-white bg-blue-600 font-bold">
+                        <i class="fa-solid fa-info"></i>
+                    </div>
+                    <div>
+                        <span id="modalDate" class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block"></span>
+                        <h3 id="modalTitle" class="text-lg font-bold text-slate-900 dark:text-white leading-tight"></h3>
+                    </div>
+                </div>
+                <button onclick="closeModal('detailModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block">ORGANIZAȚIE / INSTITUȚIE</span>
+                    <p id="modalOrg" class="font-semibold text-slate-800 dark:text-slate-100 text-base"></p>
+                </div>
+
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block mb-1">DESCRIERE & DETALII</span>
+                    <p id="modalDesc" class="leading-relaxed bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50"></p>
+                </div>
+
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block mb-2">TAG-URI ASOCIATE</span>
+                    <div id="modalTags" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                <button onclick="closeModal('detailModal')" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition">
+                    Închide
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div id="contactModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-700">
+                <h3 class="font-bold text-lg">Informații Contact</h3>
+                <button onclick="closeModal('contactModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-sm">
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                    <div class="p-2.5 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Nume Complet</span>
+                        <span class="font-semibold">Patricia Dița</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                    <div class="p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <div class="flex-1">
+                        <span class="text-xs text-slate-400 block">Email</span>
+                        <span class="font-semibold">patydita90@gmail.com</span>
+                    </div>
+                    <button onclick="copyToClipboard('patydita90@gmail.com')" class="text-xs text-blue-600 hover:underline">Copiază</button>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                    <div class="p-2.5 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-600">
+                        <i class="fa-solid fa-phone"></i>
+                    </div>
+                    <div class="flex-1">
+                        <span class="text-xs text-slate-400 block">Telefon</span>
+                        <span class="font-semibold">+373 60 317 802</span>
+                    </div>
+                    <button onclick="copyToClipboard('+37360317802')" class="text-xs text-blue-600 hover:underline">Copiază</button>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                    <div class="p-2.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Adresă</span>
+                        <span class="font-semibold">Chișinău, str. N.M.Spătaru 9/2, ap.173, Rep. Moldova</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="copyToast" class="hidden mt-4 p-2 bg-emerald-500 text-white text-xs font-bold text-center rounded-lg">
+                Copiat în clipboard!
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center text-xs text-slate-500">
+        <p>© 2026 Patricia Dița - Visual Interactive CV Timeline & Network Map. Creat cu HTML, Tailwind CSS & D3.js.</p>
+    </footer>
+
+    <script>
+        // DATA STRUCTURE FROM CV
+        const cvData = [
+            // EXPERIENCE & VOLUNTEERING
+            {
+                id: 'exp1',
+                category: 'exp',
+                title: 'Voluntar Coordonator Concert',
+                org: 'EVENTEAM MOLDOVA / Chișinău Arena',
+                date: 'Dec. 2024 - Prezent',
+                year: 2024,
+                desc: 'Coordonarea și organizarea concertelor de mare anvergură la Chișinău Arena în colaborare cu agențiile GNB Agency și WOW Show.',
+                tags: ['Voluntariat', 'Evenimente', 'Coordonare', 'Muzică'],
+                icon: 'fa-ticket'
+            },
+            {
+                id: 'exp2',
+                category: 'exp',
+                title: 'Lider-voluntar Campania "Masa Bucuriei"',
+                org: 'Misiunea Socială "Diaconia"',
+                date: 'Apr. 2024 - Apr. 2025',
+                year: 2024,
+                desc: 'Coordonarea și mobilizarea echipelor de voluntari pentru desfășurarea campaniei naționale "Masa Bucuriei" (edițiile 2024 și 2025).',
+                tags: ['Voluntariat', 'Leadership', 'Diaconia', 'Social'],
+                icon: 'fa-heart text-rose-500'
+            },
+            {
+                id: 'exp3',
+                category: 'exp',
+                title: 'Consultant-vânzător',
+                org: 'BM Inspiration, Chișinău',
+                date: 'Iun. 2024 - Aug. 2024',
+                year: 2024,
+                desc: 'Consilierea clienților, gestiunea vânzărilor directe și suport relații cu clienții.',
+                tags: ['Vânzări', 'Comunicare', 'Retail'],
+                icon: 'fa-store'
+            },
+            {
+                id: 'exp4',
+                category: 'exp',
+                title: 'Vicepreședinte',
+                org: 'Consiliul Elevilor, IPLT "Gaudeamus"',
+                date: 'Sept. 2024 - Mai 2025',
+                year: 2024,
+                desc: 'Coordonarea activităților strategice ale Consiliului Elevilor, reprezentarea elevilor în procesul decizional și coordonarea inițiativelor școlare.',
+                tags: ['Leadership', 'Management', 'Educație', 'Consiliul Elevilor'],
+                icon: 'fa-user-tie text-blue-500'
+            },
+            {
+                id: 'exp5',
+                category: 'exp',
+                title: 'Coordonator Marketing și PR',
+                org: 'Consiliul Elevilor, IPLT "Gaudeamus"',
+                date: 'Sept. 2023 - Sept. 2024',
+                year: 2023,
+                desc: 'Coordonarea activităților de marketing ale Consiliului Elevilor. Crearea și promovarea materialelor foto/video pe pagina de Instagram a liceului.',
+                tags: ['Marketing', 'PR', 'Social Media', 'Design'],
+                icon: 'fa-bullhorn'
+            },
+            {
+                id: 'exp6',
+                category: 'exp',
+                title: 'Voluntar Activ',
+                org: 'VIP Volunteers',
+                date: 'Sept. 2023 - Prezent',
+                year: 2023,
+                desc: 'Coordonarea și organizarea evenimentelor culturale și spectacolelor la Chișinău Arena în colaborare cu GNB Agency și WOW Show.',
+                tags: ['Voluntariat', 'Evenimente', 'VIP'],
+                icon: 'fa-star text-amber-500'
+            },
+            {
+                id: 'exp7',
+                category: 'exp',
+                title: 'Voluntar Evenimente Sportive',
+                org: 'Sporter',
+                date: 'Sept. 2023 - Dec. 2023',
+                year: 2023,
+                desc: 'Participare în cadrul organizării evenimentelor sportive de masă și maratoanelor în Chișinău.',
+                tags: ['Voluntariat', 'Sport', 'Maratoane'],
+                icon: 'fa-person-running text-emerald-500'
+            },
+            {
+                id: 'exp8',
+                category: 'exp',
+                title: 'Organizator Eveniment "FASHION TALK"',
+                org: 'Digital Park, Chișinău',
+                date: 'Dec. 2023',
+                year: 2023,
+                desc: 'Organizarea conferinței și galei de modă "FASHION TALK" la Digital Park.',
+                tags: ['Evenimente', 'Fashion', 'Digital Park'],
+                icon: 'fa-shirt'
+            },
+            {
+                id: 'exp9',
+                category: 'exp',
+                title: 'Voluntar Concert "Star Party"',
+                org: 'STARNET MOLDOVA',
+                date: 'Sept. 2023',
+                year: 2023,
+                desc: 'Asistență organizatorică și logistică pentru concertul de amploare Star Party.',
+                tags: ['Voluntariat', 'Concerte', 'StarNet'],
+                icon: 'fa-music'
+            },
+            {
+                id: 'exp10',
+                category: 'exp',
+                title: 'Organizator Cultural',
+                org: 'Tabăra de copii "Camping", Vadul lui Vodă',
+                date: 'Iul. 2023',
+                year: 2023,
+                desc: 'Conceperea și coordonarea activităților artistice, teatrale și culturale pentru copii.',
+                tags: ['Cultură', 'Copii', 'Animatie'],
+                icon: 'fa-campground'
+            },
+            {
+                id: 'exp11',
+                category: 'exp',
+                title: 'Voluntar Proiecte, Marketing & HR',
+                org: 'Consiliul Local de Tineret Centru',
+                date: 'Febr. 2023 - Nov. 2023',
+                year: 2023,
+                desc: 'Participare și organizare în departamentele de proiecte, promovare și resurse umane.',
+                tags: ['Tineret', 'Proiecte', 'HR', 'Marketing'],
+                icon: 'fa-users text-indigo-500'
+            },
+            {
+                id: 'exp12',
+                category: 'exp',
+                title: 'Secretar, Membru Grup Inițiativă "CLTR Râșcani"',
+                org: 'Consiliul Local de Tineret s. Râșcani',
+                date: 'Mart. 2023 - Apr. 2023',
+                year: 2023,
+                desc: 'Secretariat, redactare de documente și coordonarea evenimentelor locale de tineret.',
+                tags: ['Tineret', 'Secretariat', 'Administrație'],
+                icon: 'fa-pen-to-square'
+            },
+            {
+                id: 'exp13',
+                category: 'exp',
+                title: 'Voluntar "Ziua Europei 2023"',
+                org: 'Orășelul European, Chișinău',
+                date: 'Mai 2023',
+                year: 2023,
+                desc: 'Participare la organizarea și coordonarea spațiilor interactive din cadrul evenimentului Ziua Europei.',
+                tags: ['Voluntariat', 'Ziua Europei', 'Diplomatie'],
+                icon: 'fa-flag text-blue-600'
+            },
+            {
+                id: 'exp14',
+                category: 'exp',
+                title: 'Voluntar Social Activ',
+                org: 'Misiunea Socială "Diaconia"',
+                date: 'Mart. 2023 - Prezent',
+                year: 2023,
+                desc: 'Activități continue de sprijin comunitar, logistică umanitară și solidaritate socială.',
+                tags: ['Voluntariat', 'Diaconia', 'Social'],
+                icon: 'fa-hand-holding-heart'
+            },
+            {
+                id: 'exp15',
+                category: 'exp',
+                title: 'Dansatoare Profesionistă',
+                org: 'Trupa SISnBRO',
+                date: '2015 - 2025',
+                year: 2015,
+                desc: 'Activitate de lungă durată în cadrul școlii de dans SISnBRO, participare la show-uri, concursuri și reprezentări scenice.',
+                tags: ['Dans', 'Arte', 'Performanță'],
+                icon: 'fa-person-dancing text-purple-500'
+            },
+
+            // EDUCATION & COURSES
+            {
+                id: 'edu1',
+                category: 'edu',
+                title: 'Studii Liceale',
+                org: 'IPLT "Gaudeamus", mun. Chișinău',
+                date: 'Sept. 2023 - Prezent',
+                year: 2023,
+                desc: 'Specializare profil umanist / real, dezvoltare academică și implicare extracurriculară intensă.',
+                tags: ['Liceu', 'Gaudeamus', 'Educație'],
+                icon: 'fa-school text-blue-500'
+            },
+            {
+                id: 'edu2',
+                category: 'edu',
+                title: 'Tabăra de vară - "Tânăr în acțiune!"',
+                org: 'Proiect Tineret Moldova',
+                date: 'Aug. 2024',
+                year: 2024,
+                desc: 'Program intensiv de leadership, activism civic și dezvoltare personală.',
+                tags: ['Leadership', 'Limbaj Civic', 'Cursuri'],
+                icon: 'fa-sun text-amber-500'
+            },
+            {
+                id: 'edu3',
+                category: 'edu',
+                title: 'Educatie Financiară & Antreprenoriat MONEY101',
+                org: 'Școala de Antreprenoriat',
+                date: 'Iul. 2024',
+                year: 2024,
+                desc: 'Curs practic privind gestionarea bugetului, investiții, modele de afaceri și literacy financiar.',
+                tags: ['Finanțe', 'Antreprenoriat', 'Business'],
+                icon: 'fa-coins text-emerald-500'
+            },
+            {
+                id: 'edu4',
+                category: 'edu',
+                title: 'Școala de Antreprenori - Startup101',
+                org: 'Startup101 Moldova',
+                date: 'Nov. 2023',
+                year: 2023,
+                desc: 'Curs express: Gândire analitică, Design 3D, Management & Leadership, Public Speaking, Inteligență Artificială, Profesiile viitorului.',
+                tags: ['AI', 'Public Speaking', 'Design 3D', 'Leadership'],
+                icon: 'fa-rocket text-indigo-500'
+            },
+            {
+                id: 'edu5',
+                category: 'edu',
+                title: 'Cursuri Teatru & Public Speaking',
+                org: 'Școală de Arta Scenică',
+                date: '2024',
+                year: 2024,
+                desc: 'Dezvoltarea expresivității corporale, dicției, prezenței scenice și gestionării emoțiilor.',
+                tags: ['Teatru', 'Arte', 'Public Speaking'],
+                icon: 'fa-masks-theater text-purple-500'
+            },
+            {
+                id: 'edu6',
+                category: 'edu',
+                title: 'Cursuri Specializate Limba Engleză',
+                org: 'Centru Lingvistic Chișinău',
+                date: 'Dec. 2023',
+                year: 2023,
+                desc: 'Perfecționare gramaticală și comunicare fluentă în limba engleză.',
+                tags: ['Limbi Străine', 'Engleză'],
+                icon: 'fa-language'
+            },
+            {
+                id: 'edu7',
+                category: 'edu',
+                title: 'Cursuri Limba Italiană & Instrument Muzical (Chitară)',
+                org: 'Școală de Arte și Limbi Străine',
+                date: '2022',
+                year: 2022,
+                desc: 'Aprofundare limba italiană și însușirea tehnicii de interpretare la chitară.',
+                tags: ['Italiană', 'Chitară', 'Arte'],
+                icon: 'fa-guitar text-rose-500'
+            },
+            {
+                id: 'edu8',
+                category: 'edu',
+                title: 'Studii Gimnaziale',
+                org: 'IPLT "Gaudeamus", mun. Chișinău',
+                date: 'Sept. 2018 - Mai 2023',
+                year: 2018,
+                desc: 'Absolvire cu rezultate academice excelente și participare la olimpiade.',
+                tags: ['Gimnaziu', 'Gaudeamus'],
+                icon: 'fa-graduation-cap'
+            },
+            {
+                id: 'edu9',
+                category: 'edu',
+                title: 'Studii Primare',
+                org: 'Școala Primară nr. 82, s. Ciocana',
+                date: 'Sept. 2014 - Mai 2018',
+                year: 2014,
+                desc: 'Bazele educaționale primare, concursuri școlare de lectură și creație.',
+                tags: ['Primară', 'Educație'],
+                icon: 'fa-book-open'
+            },
+
+            // ACHIEVEMENTS & PUBLICATIONS
+            {
+                id: 'ach1',
+                category: 'achieve',
+                title: 'Locul I - Olimpiada Universitară Limba Română',
+                org: 'UPSC "Ion Creangă", Chișinău',
+                date: '15 Mai 2025',
+                year: 2025,
+                desc: 'Locul I la olimpiada universitară organizată de Universitatea Pedagogică de Stat „Ion Creangă”, Disciplina Limba și literatura română.',
+                tags: ['Olimpiadă', 'Locul I', 'Română', 'UPSC'],
+                icon: 'fa-award text-amber-500'
+            },
+            {
+                id: 'ach2',
+                category: 'achieve',
+                title: 'Locul II - Conferința Științifică "Cercetători în devenire"',
+                org: 'Conferință Științifico-Practică',
+                date: '14 Martie 2025',
+                year: 2025,
+                desc: 'Premiul II în cadrul conferinței științifico-practice pentru lucrare de cercetare originală.',
+                tags: ['Cercetare', 'Știință', 'Premiu'],
+                icon: 'fa-microscope text-blue-500'
+            },
+            {
+                id: 'ach3',
+                category: 'achieve',
+                title: 'Participantă ESU Moldova Public Speaking',
+                org: 'ESU Moldova National Competition',
+                date: '2025',
+                year: 2025,
+                desc: 'Calificată și participantă în cadrul English Speaking Union Moldova National Public Speaking Competition.',
+                tags: ['Public Speaking', 'Engleză', 'Concurs'],
+                icon: 'fa-microphone text-indigo-500'
+            },
+            {
+                id: 'ach4',
+                category: 'achieve',
+                title: 'Locul II (Medalie de Argint) - "Tânărul Cercetător"',
+                org: 'Concurs Internațional de Științe',
+                date: 'Martie 2024',
+                year: 2024,
+                desc: 'Locul II și medalie de argint la etapa internațională a concursului "Tânărul Cercetător".',
+                tags: ['Concurs Internațional', 'Medalie Argint', 'Cercetare'],
+                icon: 'fa-medal text-slate-400'
+            },
+            {
+                id: 'ach5',
+                category: 'achieve',
+                title: 'Publicație Științifică (Ediția 11 & 12)',
+                org: 'Revista Universitară "Instruire prin Cercetare"',
+                date: '2024 - 2025',
+                year: 2024,
+                desc: 'Publicarea articolelor științifice în volumul III "Tânărul cercetător" în cadrul Conferinței Internaționale "Instruire prin cercetare pentru o societate prosperă".',
+                tags: ['Publicație', 'Revistă Științifică', 'Articol'],
+                icon: 'fa-newspaper text-emerald-600'
+            },
+            {
+                id: 'ach6',
+                category: 'achieve',
+                title: 'Participantă STEAM Challenge - Astronomie',
+                org: 'STEAM Challenge Moldova',
+                date: 'Toamna 2024',
+                year: 2024,
+                desc: 'Participare la competiția STEAM pe secțiunea Astronomie.',
+                tags: ['STEAM', 'Astronomie', 'Știință'],
+                icon: 'fa-user-astronaut text-purple-500'
+            },
+            {
+                id: 'ach7',
+                category: 'achieve',
+                title: 'Participare la Procese Decizionale Tineret',
+                org: 'Primăria Chișinău & CMTC Chișinău',
+                date: '23.03.2023 & 03.08.2023',
+                year: 2023,
+                desc: 'Implicare directă în consultările publice și structura de tineret din cadrul Primăriei Chișinău.',
+                tags: ['Decizii', 'Primăria Chișinău', 'Politici Tineret'],
+                icon: 'fa-building-columns text-slate-600'
+            },
+            {
+                id: 'ach8',
+                category: 'achieve',
+                title: 'Mențiune Concurs Internațional "Pro Lectura"',
+                org: 'Pro Lectura (Etapa Internațională)',
+                date: '2023',
+                year: 2023,
+                desc: 'Distincție specială pentru eseu și interpretare critică literară.',
+                tags: ['Lectură', 'Concurs Internațional', 'Literatură'],
+                icon: 'fa-bookmark text-rose-500'
+            },
+            {
+                id: 'ach9',
+                category: 'achieve',
+                title: 'Locul II - "Sentimente de toamnă în poezie și cântec"',
+                org: 'Concurs Internațional de Poezie și Cântec',
+                date: '2023',
+                year: 2023,
+                desc: 'Premiul II pentru interpretare artistică și sensibilitate poetică.',
+                tags: ['Poezie', 'Muzică', 'Premiu'],
+                icon: 'fa-feather text-amber-600'
+            }
+        ];
+
+        const careerTreeData = {
+            id: "ROOT_CAREER",
+            name: "Patricia Dița",
+            title: "Profil Bază: Lider Tineret & Coordonator Proiecte",
+            category: "root",
+            level: "Bază Actuală",
+            color: "#10b981",
+            desc: "Punctul actual de pornire fundamentat pe experiența din Consiliul Elevilor, organizarea de evenimente la Chișinău Arena, voluntariat social Diaconia și cercetare științifică.",
+            cvBridge: "Însumează 15+ proiecte, vicepreședinție Consiliul Elevilor, premii la olimpiade și festivaluri.",
+            skills: ["Leadership", "Management Evenimente", "Public Speaking", "Cercetare", "Limbi Străine"],
+            children: [
+                {
+                    id: "TRACK_EV",
+                    trackCode: "EV",
+                    name: "Directia 1: Management Cultură & Evenimente",
+                    title: "Director de Producție & Spectacole",
+                    level: "Pilon Strategic",
+                    color: "#2563eb",
+                    desc: "Dezvoltare profesională axată pe organizarea, logistică și managementul marilor festivaluri, concerte și galei culturale.",
+                    cvBridge: "Experiență directă: Voluntar Coordonator Chișinău Arena, WOW Show, GNB Agency, Sporter, Fashion Talk Digital Park.",
+                    skills: ["Crowd Management", "Technical Logistics", "Vendor Relations"],
+                    children: [
+                        {
+                            id: "EV_L1",
+                            name: "Event Operations Specialist",
+                            title: "Specialist Producție & Logistice Evenimente",
+                            level: "Nivel 1 (1-2 ani)",
+                            color: "#3b82f6",
+                            desc: "Gestionarea fluxului de participanți, securitate scenică, coordonarea echipelor de voluntari și asistență pentru artiști.",
+                            cvBridge: "Proiecte: Chișinău Arena (2024-2025), Maratoane Sporter, Star Party.",
+                            skills: ["Team Scheduling", "Ticketing Platforms", "On-site Logistics"],
+                            children: [
+                                {
+                                    id: "EV_L2",
+                                    name: "Senior Event Producer",
+                                    title: "Producător Senior de Evenimente & Spectacole",
+                                    level: "Nivel 2 (3-5 ani)",
+                                    desc: "Conceperea conceptului tehnic și artistic, negocierea parteneriatelor, coordonarea bugetelor de zeci de mii de euro.",
+                                    cvBridge: "Liderism din Fashion Talk Digital Park & Tabăra Camping.",
+                                    skills: ["Budgeting", "Sponsorship Pitching", "AV & Stage Tech"],
+                                    children: [
+                                        {
+                                            id: "EV_L3",
+                                            name: "Director de Producție Culturală / CEO Event Agency",
+                                            title: "Director Executiv Casa de Producție / Arena Event Director",
+                                            level: "Nivel 3 (6+ ani)",
+                                            desc: "Conducerea unei agenții proprii de turnee internaționale și producție artistică de anvergură europeană.",
+                                            cvBridge: "Sinteză a leadership-ului din Consiliul Elevilor și rețelei de la Chișinău Arena.",
+                                            skills: ["Strategic Management", "International Booking", "Brand Partnerships"]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "TRACK_MKT",
+                    trackCode: "MKT",
+                    name: "Directia 2: PR, Social Media & Marketing",
+                    title: "Chief Marketing & Communications Officer",
+                    level: "Pilon Strategic",
+                    color: "#a855f7",
+                    desc: "Carieră axată pe construirea imaginii de brand, strategii de conținut foto/video, PR instituțional și campanii digitale.",
+                    cvBridge: "Experiență directă: Coordonator Marketing și PR IPLT Gaudeamus, CapCut, PicsArt, GoDaddy Studio, ChatGPT.",
+                    skills: ["Content Strategy", "Instagram Growth", "Visual Storytelling"],
+                    children: [
+                        {
+                            id: "MKT_L1",
+                            name: "Social Media & PR Specialist",
+                            title: "Specialist Comunicare Digitală & PR",
+                            level: "Nivel 1 (1-2 ani)",
+                            desc: "Crearea și editarea clipurilor promoționale, copywriting, gestionarea comunității și relații cu presa.",
+                            cvBridge: "Pagina Instagram Gaudeamus și materialele de promovare ale Consiliului Elevilor.",
+                            skills: ["CapCut Editing", "Copywriting", "Campaign Analytics"],
+                            children: [
+                                {
+                                    id: "MKT_L2",
+                                    name: "Brand Strategy Manager",
+                                    title: "Brand Strategy Lead & PR Director",
+                                    level: "Nivel 2 (3-5 ani)",
+                                    desc: "Strategii de lansare de brand, campanii influencer marketing și coordonarea identității vizuale.",
+                                    cvBridge: "Combinația dintre abilitățile de antreprenoriat Startup101 și experiența de vânzări BM Inspiration.",
+                                    skills: ["Crisis PR", "Influencer Relations", "SEO & Digital Ads"],
+                                    children: [
+                                        {
+                                            id: "MKT_L3",
+                                            name: "Chief Marketing Officer (CMO)",
+                                            title: "Director de Marketing & Comunicare Inovație",
+                                            level: "Nivel 3 (6+ ani)",
+                                            desc: "Supervizarea întregii strategii de marketing și PR pentru companii internaționale sau corporații media.",
+                                            cvBridge: "Viziune strategică alimentată de cursurile MONEY101 și Startup101.",
+                                            skills: ["Global Brand Management", "PR Crisis Leadership", "ROI & Market Expansion"]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "TRACK_POL",
+                    trackCode: "POL",
+                    name: "Directia 3: Politici Publice, NGO & Liderism",
+                    title: "Director Organizații Internaționale / Diplomat Tineret",
+                    level: "Pilon Strategic",
+                    color: "#f59e0b",
+                    desc: "Traseu orientat către sectorul asociativ, proiecte europene de tineret, advocacy, drepturile omului și administrație publică.",
+                    cvBridge: "Experiență directă: Vicepreședinte Consiliul Elevilor, Lider Diaconia (Masa Bucuriei), CLTR Râșcani, Primăria Chișinău.",
+                    skills: ["Public Advocacy", "Civic Leadership", "Policy Consultation"],
+                    children: [
+                        {
+                            id: "POL_L1",
+                            name: "Youth Project Manager",
+                            title: "Manager Proiecte de Tineret & Voluntariat",
+                            level: "Nivel 1 (1-2 ani)",
+                            desc: "Coordonarea granturilor locale, organizarea atelierelor pentru tineri și scrierea propunerilor de finanțare.",
+                            cvBridge: "Misiunea Socială Diaconia și Consiliul Local de Tineret Centru.",
+                            skills: ["Grant Writing", "Volunteer Engagement", "Event Facilitation"],
+                            children: [
+                                {
+                                    id: "POL_L2",
+                                    name: "NGO Executive Director",
+                                    title: "Director Executiv ONG / Coordonator Programe Europene",
+                                    level: "Nivel 2 (3-5 ani)",
+                                    desc: "Gestiunea resurselor umane și financiare ale organizației, reprezentarea în fața finanțatorilor UE.",
+                                    cvBridge: "Consultările din Primăria Chișinău și Tabăra \"Tânăr în Acțiune\".",
+                                    skills: ["EU Grant Management", "Policy Advocacy", "Public Speaking"],
+                                    children: [
+                                        {
+                                            id: "POL_L3",
+                                            name: "European Policy Advisor / Diplomat",
+                                            title: "Consilier Politici Europene & Ambasador al Tineretului",
+                                            level: "Nivel 3 (6+ ani)",
+                                            desc: "Elaborarea strategiilor naționale de tineret, reprezentarea țării la nivelul Comisiei Europene sau ONU.",
+                                            cvBridge: "Calificările la ESU Public Speaking și Ziua Europei Orășelul European.",
+                                            skills: ["Diplomatic Relations", "Public Speaking & Negotiation", "Policy Drafting"]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "TRACK_SCI",
+                    trackCode: "SCI",
+                    name: "Directia 4: Cercetare Științifică & Analytics",
+                    title: "Cercetător Științific & Coordonator Programe STEAM",
+                    level: "Pilon Strategic",
+                    color: "#06b6d4",
+                    desc: "Traseu academic axat pe cercetare applicată, publicații internaționale, analiză de date și inovație educațională.",
+                    cvBridge: "Experiență directă: Locul I Olimpiada UPSC, Locul II Concurs Internațional \"Tânărul Cercetător\", 2 publicații de cercetare.",
+                    skills: ["Metodologie de Cercetare", "Scriere Științifică", "Analiză Date"],
+                    children: [
+                        {
+                            id: "SCI_L1",
+                            name: "Academic Research Assistant",
+                            title: "Asistent Cercetare Științifică & redactare articole",
+                            level: "Nivel 1 (1-2 ani)",
+                            desc: "Colectarea datelor, redactarea articolelor științifice și participarea la simpozioane universitare.",
+                            cvBridge: "Publicațiile în revista universitară \"Instruire prin Cercetare\" (Ediția 11 & 12).",
+                            skills: ["Data Collection", "Academic Writing", "Statistical Analysis"],
+                            children: [
+                                {
+                                    id: "SCI_L2",
+                                    name: "Senior Researcher & Lecturer",
+                                    title: "Cercetător Științific Principal & Lector Universitar",
+                                    level: "Nivel 2 (3-5 ani)",
+                                    desc: "Conducerea granturilor de cercetare, publicarea în reviste cotate ISI/Scopus și coordonarea studenților.",
+                                    cvBridge: "Premiile la Conferințele \"Cercetători în devenire\" și Pro Lectura.",
+                                    skills: ["Project Grant Direction", "Peer Reviewing", "Curriculum Design"],
+                                    children: [
+                                        {
+                                            id: "SCI_L3",
+                                            name: "Director Institut de Cercetare & Inovație",
+                                            title: "Head of Research & Educational Innovation",
+                                            level: "Nivel 3 (6+ ani)",
+                                            desc: "Coordonarea proiectelor transnaționale STEAM, gestionarea centrelor de inovație și consultanță guvernamentală.",
+                                            cvBridge: "Participarea la STEAM Challenge Astronomie și premiile olimpice UPSC.",
+                                            skills: ["Research Ecosystem Leadership", "Cross-border Science Grants", "Educational Innovation"]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // SKILLS & EXTRA DATA
+        const digitalSkills = ['Microsoft Word', 'PowerPoint', 'Excel', 'CapCut (Video Editing)', 'ChatGPT (AI Prompts)', 'PicsArt (Graphics)', 'GoDaddy Studio', 'Google Apps Suite'];
+        
+        const foreignLanguages = [
+            { name: 'Română', level: 'Nativ / Maternă', percent: 100 },
+            { name: 'Engleză', level: 'Nivel Avansat (B2/C1)', percent: 85 },
+            { name: 'Rusă', level: 'Nivel Intermediar-Avansat', percent: 75 },
+            { name: 'Italiană', level: 'Nivel Mediu (Cursuri 2022)', percent: 60 },
+            { name: 'Franceză', level: 'Nivel Elementar-Mediu', percent: 50 }
+        ];
+
+        const softSkills = [
+            'Comunicare Asertivă', 'Soluționare Conflictuală Amiabilă', 'Leadership & Management de Echipă',
+            'Punctualitate & Corectitudine', 'Empatie & Responsabilitate', 'Gândire Analitică'
+        ];
+
+        const hobbies = ['Dans (SISnBRO - 10 Ani)', 'Înot & Maratoane', 'Lectură & Scriere Creativă', 'Interpretare Chitară'];
+
+        // STATE MANAGEMENT
+        let currentFilterTag = 'ALL';
+        let currentSearchQuery = '';
+        let currentYear = 'ALL';
+        let currentViewMode = 'columns'; // 'columns', 'stream', 'graph', or 'career'
+        
+        // D3 Graph Globals
+        let graphSimulation = null;
+        let graphZoomBehavior = null;
+        let isGraphPhysicsActive = true;
+
+        let careerTreeZoom = null;
+        let activeCareerTrack = 'ALL';
+
+        // INITIALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            generateTags();
+            renderDigitalSkills();
+            renderLanguages();
+            renderSoftSkills();
+            applyFilters();
+        });
+
+        function generateTags() {
+            const allTags = new Set();
+            cvData.forEach(item => item.tags.forEach(t => allTags.add(t)));
+            
+            const container = document.getElementById('tagContainer');
+            let html = `
+                <button onclick="filterByTag('ALL')" class="tag-btn badge-active px-3 py-1 rounded-lg text-xs font-semibold border transition">
+                    Toate
+                </button>
+            `;
+
+            Array.from(allTags).sort().forEach(tag => {
+                html += `
+                    <button onclick="filterByTag('${tag}')" data-tag="${tag}" class="tag-btn px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
+                        #${tag}
+                    </button>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filterByTag(tag) {
+            currentFilterTag = tag;
+            document.querySelectorAll('.tag-btn').forEach(btn => {
+                btn.classList.remove('badge-active');
+                if ((tag === 'ALL' && btn.innerText.trim() === 'Toate') || btn.getAttribute('data-tag') === tag) {
+                    btn.classList.add('badge-active');
+                }
+            });
+            applyFilters();
+        }
+
+        function renderDigitalSkills() {
+            const container = document.getElementById('digitalSkillsList');
+            container.innerHTML = digitalSkills.map(skill => `
+                <span class="px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium border border-blue-100 dark:border-blue-800/40 flex items-center gap-1.5">
+                    <i class="fa-solid fa-check text-[10px]"></i> ${skill}
+                </span>
+            `).join('');
+        }
+
+        function renderLanguages() {
+            const container = document.getElementById('languagesList');
+            container.innerHTML = foreignLanguages.map(lang => `
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="font-bold text-slate-800 dark:text-slate-200">${lang.name}</span>
+                        <span class="text-slate-500 dark:text-slate-400">${lang.level}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500" style="width: ${lang.percent}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderSoftSkills() {
+            const container = document.getElementById('softSkillsList');
+            let html = '<div class="flex flex-wrap gap-1.5 mb-4">';
+            softSkills.forEach(skill => {
+                html += `<span class="px-2 py-1 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-semibold">${skill}</span>`;
+            });
+            html += '</div><div class="border-t border-slate-100 dark:border-slate-700/60 pt-3"><span class="text-xs font-bold text-slate-400 block mb-2 uppercase">Hobby-uri:</span><div class="flex flex-wrap gap-2">';
+            hobbies.forEach(h => {
+                html += `<span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1"><i class="fa-solid fa-star text-amber-500 text-[10px]"></i> ${h}</span>`;
+            });
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        function applyFilters() {
+            currentSearchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            currentYear = document.getElementById('yearFilter').value;
+
+            const filtered = cvData.filter(item => {
+                // Tag filter
+                const matchesTag = currentFilterTag === 'ALL' || item.tags.includes(currentFilterTag);
+                
+                // Year filter
+                let matchesYear = true;
+                if (currentYear === '2025') matchesYear = item.year === 2025;
+                else if (currentYear === '2024') matchesYear = item.year === 2024;
+                else if (currentYear === '2023') matchesYear = item.year === 2023;
+                else if (currentYear === '2022') matchesYear = item.year <= 2022;
+
+                // Search query
+                const text = `${item.title} ${item.org} ${item.desc} ${item.tags.join(' ')}`.toLowerCase();
+                const matchesSearch = text.includes(currentSearchQuery);
+
+                return matchesTag && matchesYear && matchesSearch;
+            });
+
+            renderMultiColumn(filtered);
+            renderStreamView(filtered);
+            if (currentViewMode === 'graph') {
+                renderGraphView(filtered);
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('yearFilter').value = 'ALL';
+            filterByTag('ALL');
+        }
+
+        function createCardHTML(item) {
+            const tagsHTML = item.tags.map(t => `<span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] text-slate-600 dark:text-slate-300">#${t}</span>`).join(' ');
+            
+            return `
+                <div onclick="openItemModal('${item.id}')" class="group bg-slate-50 dark:bg-slate-900/60 hover:bg-blue-50/50 dark:hover:bg-slate-700/50 border border-slate-200/80 dark:border-slate-700 rounded-xl p-4 cursor-pointer transition-all hover:shadow-md relative overflow-hidden">
+                    <div class="flex items-start justify-between gap-2 mb-1.5">
+                        <span class="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-900/40 px-2 py-0.5 rounded-md">
+                            ${item.date}
+                        </span>
+                        <i class="fa-solid ${item.icon || 'fa-circle-info'} text-slate-400 group-hover:text-blue-500 transition-colors text-sm"></i>
+                    </div>
+
+                    <h4 class="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug">
+                        ${item.title}
+                    </h4>
+
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                        ${item.org}
+                    </p>
+
+                    <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-3">
+                        ${item.desc}
+                    </p>
+
+                    <div class="flex flex-wrap gap-1 pt-1 border-t border-slate-200/50 dark:border-slate-800">
+                        ${tagsHTML}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMultiColumn(items) {
+            const expItems = items.filter(i => i.category === 'exp');
+            const eduItems = items.filter(i => i.category === 'edu');
+            const achieveItems = items.filter(i => i.category === 'achieve');
+
+            document.getElementById('expCount').innerText = expItems.length;
+            document.getElementById('eduCount').innerText = eduItems.length;
+            document.getElementById('achieveCount').innerText = achieveItems.length;
+
+            const expContainer = document.getElementById('expList');
+            const eduContainer = document.getElementById('eduList');
+            const achieveContainer = document.getElementById('achieveList');
+
+            expContainer.innerHTML = expItems.length ? expItems.map(createCardHTML).join('') : getEmptyState();
+            eduContainer.innerHTML = eduItems.length ? eduItems.map(createCardHTML).join('') : getEmptyState();
+            achieveContainer.innerHTML = achieveItems.length ? achieveItems.map(createCardHTML).join('') : getEmptyState();
+        }
+
+        function renderStreamView(items) {
+            const streamContainer = document.getElementById('streamList');
+            if (!items.length) {
+                streamContainer.innerHTML = getEmptyState();
+                return;
+            }
+
+            // Sort chronologically (newest first)
+            const sorted = [...items].sort((a, b) => b.year - a.year);
+
+            streamContainer.innerHTML = sorted.map(item => `
+                <div class="relative group">
+                    <div class="absolute -left-10 top-1.5 w-5 h-5 rounded-full border-2 border-blue-500 bg-white dark:bg-slate-900 group-hover:bg-blue-500 transition-colors"></div>
+                    
+                    <div onclick="openItemModal('${item.id}')" class="bg-slate-50 dark:bg-slate-900/60 hover:bg-blue-50/50 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 p-4 rounded-xl cursor-pointer transition">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-xs font-extrabold text-blue-600 dark:text-blue-400">${item.date}</span>
+                            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                ${item.category === 'exp' ? 'Experiență' : item.category === 'edu' ? 'Educație' : 'Realizare'}
+                            </span>
+                        </div>
+                        <h4 class="font-bold text-slate-900 dark:text-white text-base">${item.title}</h4>
+                        <p class="text-xs font-semibold text-slate-500 mb-2">${item.org}</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-300">${item.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getEmptyState() {
+            return `
+                <div class="text-center py-8 text-slate-400">
+                    <i class="fa-solid fa-folder-open text-2xl mb-2 block"></i>
+                    <span class="text-xs">Niciun rezultat găsit pentru selecție.</span>
+                </div>
+            `;
+        }
+
+        // VIEW MODE SWITCHER
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            const multiCol = document.getElementById('multiColumnView');
+            const stream = document.getElementById('streamView');
+            const graph = document.getElementById('graphView');
+            const colBtn = document.getElementById('viewColBtn');
+            const streamBtn = document.getElementById('viewStreamBtn');
+            const graphBtn = document.getElementById('viewGraphBtn');
+
+            // Reset view buttons styles
+            [colBtn, streamBtn, graphBtn].forEach(btn => {
+                btn.className = 'px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5';
+            });
+
+            if (mode === 'columns') {
+                multiCol.classList.remove('hidden');
+                stream.classList.add('hidden');
+                graph.classList.add('hidden');
+                colBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+            } else if (mode === 'stream') {
+                multiCol.classList.add('hidden');
+                stream.classList.remove('hidden');
+                graph.classList.add('hidden');
+                streamBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+            } else if (mode === 'graph') {
+                multiCol.classList.add('hidden');
+                stream.classList.add('hidden');
+                graph.classList.remove('hidden');
+                graphBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+                applyFilters(); // Re-render graph
+            }
+        }
+
+        function renderGraphView(filteredItems) {
+            const svg = d3.select("#networkGraphSvg");
+            svg.selectAll("*").remove(); // Clear previous render
+
+            const container = document.getElementById('graphCanvasContainer');
+            const width = container.clientWidth || 900;
+            const height = container.clientHeight || 550;
+
+            // Construct Graph Nodes and Links Data
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
+
+            // 1. Root Central Node
+            const rootNode = {
+                id: 'ROOT',
+                title: 'Patricia Dița',
+                org: 'Lider Tineret & Coordonator',
+                date: '2014 - Prezent',
+                desc: 'Centrul rețelei de activități, proiecte, educație și realizări.',
+                category: 'root',
+                type: 'Root',
+                radius: 26,
+                color: '#2563eb', // Blue-600
+                tags: ['Liderism', 'Management', 'Cultură']
+            };
+            nodes.push(rootNode);
+            nodeMap.set(rootNode.id, rootNode);
+
+            // 2. Category Hub Nodes
+            const categories = [
+                { id: 'CAT_EXP', title: 'Experiență & Voluntariat', color: '#06b6d4', radius: 18, category: 'cat_exp' },
+                { id: 'CAT_EDU', title: 'Educație & Cursuri', color: '#a855f7', radius: 18, category: 'cat_edu' },
+                { id: 'CAT_ACH', title: 'Realizări & Premii', color: '#f59e0b', radius: 18, category: 'cat_ach' }
+            ];
+
+            categories.forEach(cat => {
+                const catNode = {
+                    ...cat,
+                    org: 'Pilon Principal',
+                    desc: `Grupul principal pentru ${cat.title}`,
+                    tags: [cat.title]
+                };
+                nodes.push(catNode);
+                nodeMap.set(cat.id, catNode);
+                links.push({ source: 'ROOT', target: cat.id, value: 3 });
+            });
+
+            // 3. Items and Tag Nodes
+            const tagNodesMap = new Map();
+
+            filteredItems.forEach(item => {
+                const nodeColor = item.category === 'exp' ? '#38bdf8' :
+                                  item.category === 'edu' ? '#c084fc' : '#fbbf24';
+
+                const itemNode = {
+                    id: item.id,
+                    title: item.title,
+                    org: item.org,
+                    date: item.date,
+                    desc: item.desc,
+                    category: item.category,
+                    tags: item.tags,
+                    radius: 12,
+                    color: nodeColor,
+                    rawItem: item
+                };
+
+                nodes.push(itemNode);
+                nodeMap.set(item.id, itemNode);
+
+                // Connect Item to Category Hub
+                const parentCatId = item.category === 'exp' ? 'CAT_EXP' :
+                                    item.category === 'edu' ? 'CAT_EDU' : 'CAT_ACH';
+                links.push({ source: parentCatId, target: item.id, value: 2 });
+
+                // Connect to Tags
+                item.tags.forEach(tag => {
+                    const tagId = `TAG_${tag}`;
+                    if (!tagNodesMap.has(tagId)) {
+                        const tagNode = {
+                            id: tagId,
+                            title: `#${tag}`,
+                            org: 'Tag / Competentă',
+                            date: 'Conexiune',
+                            desc: `Domeniu de competență asociat cu mai multe activități.`,
+                            category: 'tag',
+                            tags: [tag],
+                            radius: 8,
+                            color: '#10b981' // Emerald
+                        };
+                        tagNodesMap.set(tagId, tagNode);
+                        nodes.push(tagNode);
+                        nodeMap.set(tagId, tagNode);
+                    }
+                    links.push({ source: item.id, target: tagId, value: 1 });
+                });
+            });
+
+            // Render SVG Groups
+            const g = svg.append("g");
+
+            // Setup Zoom Behavior
+            graphZoomBehavior = d3.zoom()
+                .scaleExtent([0.3, 3])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+
+            svg.call(graphZoomBehavior);
+
+            graphSimulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.value === 3 ? 120 : d.value === 2 ? 75 : 45))
+                .force("charge", d3.forceManyBody().strength(-200))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collide", d3.forceCollide().radius(d => d.radius + 10));
+
+            // Render Links
+            const link = g.append("g")
+                .selectAll("line")
+                .data(links)
+                .join("line")
+                .attr("class", "graph-link")
+                .attr("stroke-width", d => Math.sqrt(d.value) * 1.5)
+                .attr("stroke", "#94a3b8")
+                .attr("stroke-opacity", 0.4);
+
+            // Render Node Groups
+            const node = g.append("g")
+                .selectAll(".graph-node-group")
+                .data(nodes)
+                .join("g")
+                .attr("class", "graph-node-group")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Node Circles
+            node.append("circle")
+                .attr("r", d => d.radius)
+                .attr("fill", d => d.color)
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", d => d.category === 'root' ? 3 : 1.5)
+                .attr("class", "graph-node shadow-lg");
+
+            // Node Labels for central hubs
+            node.append("text")
+                .text(d => d.radius >= 12 ? d.title : '')
+                .attr("x", d => d.radius + 5)
+                .attr("y", 4)
+                .attr("font-size", d => d.category === 'root' ? "13px" : "10px")
+                .attr("font-weight", d => d.radius >= 18 ? "bold" : "normal")
+                .attr("fill", "currentColor")
+                .attr("class", "text-slate-800 dark:text-slate-200 pointer-events-none select-none");
+
+            // Tooltip Popover Elements
+            const tooltip = d3.select("#graphHoverTooltip");
+
+            node.on("mouseover", function(event, d) {
+                // Highlight connected edges
+                link.attr("stroke-opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.1)
+                    .attr("stroke", l => (l.source.id === d.id || l.target.id === d.id) ? "#2563eb" : "#94a3b8")
+                    .attr("stroke-width", l => (l.source.id === d.id || l.target.id === d.id) ? 3 : 1);
+
+                // Highlight node
+                d3.select(this).select("circle")
+                    .attr("r", d.radius + 4)
+                    .attr("stroke", "#2563eb")
+                    .attr("stroke-width", 3);
+
+                // Populate Tooltip
+                document.getElementById('tooltipBadge').innerText = d.category === 'exp' ? 'Experiență' :
+                                                                  d.category === 'edu' ? 'Educație' :
+                                                                  d.category === 'achieve' ? 'Realizare' :
+                                                                  d.category === 'root' ? 'Profil Principal' : 'Categorie / Tag';
+                document.getElementById('tooltipDate').innerText = d.date || '';
+                document.getElementById('tooltipTitle').innerText = d.title;
+                document.getElementById('tooltipOrg').innerText = d.org || '';
+                document.getElementById('tooltipDesc').innerText = d.desc || '';
+
+                const tagsElem = document.getElementById('tooltipTags');
+                tagsElem.innerHTML = (d.tags || []).map(t => `<span class="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 text-[10px] font-semibold">#${t}</span>`).join(' ');
+
+                tooltip.style("opacity", 1);
+            })
+            .on("mousemove", function(event) {
+                const [mouseX, mouseY] = d3.pointer(event, container);
+                tooltip
+                    .style("left", `${mouseX}px`)
+                    .style("top", `${mouseY - 15}px`);
+            })
+            .on("mouseout", function(event, d) {
+                // Reset link highlighting
+                link.attr("stroke-opacity", 0.4)
+                    .attr("stroke", "#94a3b8")
+                    .attr("stroke-width", d => Math.sqrt(d.value) * 1.5);
+
+                // Reset node size
+                d3.select(this).select("circle")
+                    .attr("r", d.radius)
+                    .attr("stroke", "#ffffff")
+                    .attr("stroke-width", d.category === 'root' ? 3 : 1.5);
+
+                tooltip.style("opacity", 0);
+            })
+            .on("click", function(event, d) {
+                if (d.rawItem) {
+                    openItemModal(d.rawItem.id);
+                }
+            });
+
+            // Simulation Tick Handler
+            graphSimulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            // Drag behavior handlers
+            function dragstarted(event, d) {
+                if (!event.active && isGraphPhysicsActive) graphSimulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active && isGraphPhysicsActive) graphSimulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        function resetGraphZoom() {
+            if (graphZoomBehavior) {
+                d3.select("#networkGraphSvg")
+                    .transition()
+                    .duration(500)
+                    .call(graphZoomBehavior.transform, d3.zoomIdentity);
+            }
+        }
+
+        function toggleGraphPhysics() {
+            isGraphPhysicsActive = !isGraphPhysicsActive;
+            const btn = document.getElementById('physicsBtn');
+            if (isGraphPhysicsActive) {
+                if (graphSimulation) graphSimulation.alpha(0.3).restart();
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i> Fizică';
+                btn.className = 'p-2 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition';
+            } else {
+                if (graphSimulation) graphSimulation.stop();
+                btn.innerHTML = '<i class="fa-solid fa-play"></i> Fizică';
+                btn.className = 'p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition';
+            }
+        }
+
+        function openItemModal(id) {
+            const item = cvData.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('modalDate').innerText = item.date;
+            document.getElementById('modalTitle').innerText = item.title;
+            document.getElementById('modalOrg').innerText = item.org;
+            document.getElementById('modalDesc').innerText = item.desc;
+
+            const tagsContainer = document.getElementById('modalTags');
+            tagsContainer.innerHTML = item.tags.map(t => `<span class="px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 text-xs font-semibold">#${t}</span>`).join(' ');
+
+            openModal('detailModal');
+        }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('themeIcon');
+            if (isDark) {
+                icon.className = 'fa-solid fa-sun text-amber-400';
+            } else {
+                icon.className = 'fa-solid fa-moon text-slate-600';
+            }
+            if (currentViewMode === 'graph') {
+                applyFilters();
+            }
+        }
+
+        function copyToClipboard(text) {
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+
+            const toast = document.getElementById('copyToast');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2000);
+        }
+
+        // Window Resize Handler for Graph
+        window.addEventListener('resize', () => {
+            if (currentViewMode === 'graph') {
+                applyFilters();
+            }
+        });
+    </script>
+</body>
+</html>
+        // VIEW MODE SWITCHER UPDATE
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            const multiCol = document.getElementById('multiColumnView');
+            const stream = document.getElementById('streamView');
+            const graph = document.getElementById('graphView');
+            const career = document.getElementById('careerView');
+
+            const colBtn = document.getElementById('viewColBtn');
+            const streamBtn = document.getElementById('viewStreamBtn');
+            const graphBtn = document.getElementById('viewGraphBtn');
+            const careerBtn = document.getElementById('viewCareerBtn');
+
+            // Reset view buttons styles
+            [colBtn, streamBtn, graphBtn, careerBtn].forEach(btn => {
+                if (btn) btn.className = 'px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5';
+            });
+
+            multiCol.classList.add('hidden');
+            stream.classList.add('hidden');
+            graph.classList.add('hidden');
+            career.classList.add('hidden');
+
+            if (mode === 'columns') {
+                multiCol.classList.remove('hidden');
+                colBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+            } else if (mode === 'stream') {
+                stream.classList.remove('hidden');
+                streamBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+            } else if (mode === 'graph') {
+                graph.classList.remove('hidden');
+                graphBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+                applyFilters(); // Re-render graph
+            } else if (mode === 'career') {
+                career.classList.remove('hidden');
+                careerBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 transition-all flex items-center gap-1.5';
+                renderCareerTreeView();
+            }
+        }
+
+        function renderCareerTreeView() {
+            const svg = d3.select("#careerTreeSvg");
+            svg.selectAll("*").remove();
+
+            const container = document.getElementById('careerTreeContainer');
+            const width = container.clientWidth || 900;
+            const height = container.clientHeight || 600;
+
+            // Prepare Hierarchy
+            let treeDataToRender = JSON.parse(JSON.stringify(careerTreeData));
+
+            if (activeCareerTrack !== 'ALL') {
+                treeDataToRender.children = treeDataToRender.children.filter(child => child.trackCode === activeCareerTrack);
+            }
+
+            const root = d3.hierarchy(treeDataToRender);
+
+            // Calculate tree depth layout
+            const treeLayout = d3.tree()
+                .size([height - 100, width - 260]);
+
+            treeLayout(root);
+
+            const g = svg.append("g")
+                .attr("transform", "translate(120, 50)");
+
+            // Zoom behavior
+            careerTreeZoom = d3.zoom()
+                .scaleExtent([0.4, 2.5])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                });
+
+            svg.call(careerTreeZoom);
+
+            // Curved Links
+            const linkGenerator = d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x);
+
+            g.append("g")
+                .selectAll("path")
+                .data(root.links())
+                .join("path")
+                .attr("d", linkGenerator)
+                .attr("fill", "none")
+                .attr("stroke", d => d.target.data.color || "#94a3b8")
+                .attr("stroke-width", 2.5)
+                .attr("stroke-opacity", 0.5)
+                .attr("stroke-dasharray", d => d.target.data.level && d.target.data.level.includes("Nivel 3") ? "4,4" : "none");
+
+            // Nodes
+            const node = g.append("g")
+                .selectAll("g")
+                .data(root.descendants())
+                .join("g")
+                .attr("transform", d => `translate(${d.y},${d.x})`)
+                .attr("class", "cursor-pointer group");
+
+            // Node Circles
+            node.append("circle")
+                .attr("r", d => d.depth === 0 ? 18 : d.depth === 1 ? 14 : 10)
+                .attr("fill", d => d.data.color || "#10b981")
+                .attr("stroke", "#ffffff")
+                .attr("stroke-width", 2.5)
+                .attr("class", "transition-all duration-300 hover:scale-125 shadow-md");
+
+            // Node Labels
+            node.append("text")
+                .attr("dy", "0.32em")
+                .attr("x", d => d.children ? -18 : 18)
+                .attr("text-anchor", d => d.children ? "end" : "start")
+                .text(d => d.data.name)
+                .attr("font-size", d => d.depth === 0 ? "14px" : d.depth === 1 ? "12px" : "11px")
+                .attr("font-weight", d => d.depth <= 1 ? "bold" : "600")
+                .attr("fill", "currentColor")
+                .attr("class", "text-slate-800 dark:text-slate-100 select-none pointer-events-none");
+
+            // Subtitle level badge text
+            node.append("text")
+                .attr("dy", "1.6em")
+                .attr("x", d => d.children ? -18 : 18)
+                .attr("text-anchor", d => d.children ? "end" : "start")
+                .text(d => d.data.level || '')
+                .attr("font-size", "9px")
+                .attr("font-weight", "normal")
+                .attr("fill", "#64748b")
+                .attr("class", "select-none pointer-events-none");
+
+            // Click Interactions
+            node.on("click", (event, d) => {
+                showCareerNodePanel(d.data);
+            });
+
+            // Default show root info on render
+            showCareerNodePanel(root.data);
+        }
+
+        function filterCareerTrack(trackCode) {
+            activeCareerTrack = trackCode;
+
+            document.querySelectorAll('.career-track-btn').forEach(btn => {
+                btn.className = 'career-track-btn px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs hover:bg-slate-300 transition';
+            });
+
+            const activeBtn = document.getElementById(`trackBtn${trackCode}`);
+            if (activeBtn) {
+                activeBtn.className = 'career-track-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm';
+            }
+
+            renderCareerTreeView();
+        }
+
+        function showCareerNodePanel(data) {
+            const panel = document.getElementById('careerNodePanel');
+            document.getElementById('panelLevelBadge').innerText = data.level || 'Direcție Carieră';
+            document.getElementById('panelTitle').innerText = data.title || data.name;
+            document.getElementById('panelDesc').innerText = data.desc || '';
+            document.getElementById('panelCvBridge').innerText = data.cvBridge || 'Fundamentat pe tot parcursul educațional și de voluntariat.';
+
+            const skillsContainer = document.getElementById('panelSkills');
+            skillsContainer.innerHTML = (data.skills || []).map(s => `
+                <span class="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">✓ ${s}</span>
+            `).join(' ');
+
+            panel.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+        }
+
+        function closeCareerPanel() {
+            const panel = document.getElementById('careerNodePanel');
+            panel.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+        }
+
+        function resetCareerTreeZoom() {
+            if (careerTreeZoom) {
+                d3.select("#careerTreeSvg")
+                    .transition()
+                    .duration(500)
+                    .call(careerTreeZoom.transform, d3.zoomIdentity.translate(120, 50));
+            }
+        }
+
+        function expandAllCareerTree() {
+            activeCareerTrack = 'ALL';
+            filterCareerTrack('ALL');
+        }
+
+        function collapseAllCareerTree() {
+            resetCareerTreeZoom();
+        }
+
+        // Window Resize Handler for Graph & Career Tree
+        window.addEventListener('resize', () => {
+            if (currentViewMode === 'graph') {
+                applyFilters();
+            } else if (currentViewMode === 'career') {
+                renderCareerTreeView();
+            }
+        });
+    </script>
+</body>
+</html>
+```
+
+### What was added:
+1. **Interactive Tree Structure**: Visualizes 4 distinct career tracks (*Management Cultură & Evenimente*, *PR & Marketing Digital*, *Politici Publice & ONG*, *Cercetare Științifică & STEAM*).
+2. **Explorable Pathways & Levels**: Step-by-step career progression from level 1 up to high executive and director levels, mapped out in an expandable horizontal tree graph.
+3. **CV Ancoring Panel**: Displays how each specific level on the tree connects directly back to her real-world background and lists required key competencies.
+4. **Pathway Filters & Controls**: Zoom/Pan, track filtering, and expand/collapse actions for intuitive exploration.
