@@ -14,6 +14,12 @@ let careerTreeZoom = null;
 
 let activeCareerTrack = "ALL";
 
+/*
+ * Keys of the branches the reader has folded away. Kept outside
+ * the data so a re-render (filter, resize) does not lose them.
+ */
+const collapsedCareerNodes = new Set();
+
 
 /* ============================================================
    CAREER TREE DATA
@@ -458,6 +464,12 @@ function getCareerTreeData() {
     if (
         activeCareerTrack === "ALL"
     ) {
+
+        markCareerBranches(
+            data,
+            ""
+        );
+
         return data;
     }
 
@@ -469,7 +481,87 @@ function getCareerTreeData() {
                     activeCareerTrack
             );
 
+    markCareerBranches(
+        data,
+        ""
+    );
+
     return data;
+}
+
+
+/* ============================================================
+   COLLAPSE / EXPAND
+   ============================================================ */
+
+function careerNodeKey(
+    node,
+    parentKey
+) {
+
+    return parentKey
+        ? `${parentKey} > ${node.name}`
+        : node.name;
+}
+
+
+/*
+ * Tags every node with its key and child count, and drops the
+ * children of folded branches so d3.tree() never lays them out.
+ */
+function markCareerBranches(
+    node,
+    parentKey
+) {
+
+    const key =
+        careerNodeKey(
+            node,
+            parentKey
+        );
+
+    const children =
+        node.children || [];
+
+    node.nodeKey = key;
+
+    node.childCount =
+        children.length;
+
+    node.isCollapsed =
+        children.length > 0 &&
+        collapsedCareerNodes.has(key);
+
+    if (node.isCollapsed) {
+
+        node.children = [];
+
+        return;
+    }
+
+    children.forEach(
+        child =>
+            markCareerBranches(
+                child,
+                key
+            )
+    );
+}
+
+
+function toggleCareerBranch(
+    key
+) {
+
+    if (
+        collapsedCareerNodes.has(key)
+    ) {
+        collapsedCareerNodes.delete(key);
+    } else {
+        collapsedCareerNodes.add(key);
+    }
+
+    renderCareerTreeView();
 }
 
 
@@ -497,17 +589,19 @@ function renderCareerTreeView() {
         return;
     }
 
+    /*
+     * Forcing a 700px canvas scaled the whole tree down to a
+     * speck inside a phone-width SVG. Draw at the container's
+     * real size and let the layout tighten instead.
+     */
     const width =
-        Math.max(
-            container.clientWidth,
-            700
-        );
+        container.clientWidth || 700;
 
     const height =
-        Math.max(
-            container.clientHeight,
-            520
-        );
+        container.clientHeight || 520;
+
+    const isNarrow =
+        width < 640;
 
     const svg =
         d3.select(
@@ -524,10 +618,11 @@ function renderCareerTreeView() {
 
     const tree =
         d3.tree()
-            .nodeSize([
-                100,
-                270
-            ])
+            .nodeSize(
+                isNarrow
+                    ? [70, 160]
+                    : [100, 270]
+            )
             .separation(
                 (a, b) =>
                     a.parent === b.parent
@@ -542,36 +637,6 @@ function renderCareerTreeView() {
 
     const links =
         root.links();
-
-    const minX =
-        d3.min(
-            nodes,
-            d => d.x
-        ) || 0;
-
-    const maxX =
-        d3.max(
-            nodes,
-            d => d.x
-        ) || 0;
-
-    const minY =
-        d3.min(
-            nodes,
-            d => d.y
-        ) || 0;
-
-    const maxY =
-        d3.max(
-            nodes,
-            d => d.y
-        ) || 0;
-
-    const treeWidth =
-        maxY - minY;
-
-    const treeHeight =
-        maxX - minX;
 
     svg
         .attr(
@@ -673,7 +738,7 @@ function renderCareerTreeView() {
         .join("path")
         .attr(
             "class",
-            "career-link"
+            "career-tree-link"
         )
         .attr(
             "d",
@@ -716,7 +781,7 @@ function renderCareerTreeView() {
             .join("g")
             .attr(
                 "class",
-                "career-node"
+                "career-tree-node"
             )
             .attr(
                 "transform",
@@ -788,7 +853,10 @@ function renderCareerTreeView() {
         )
         .attr(
             "fill",
-            "#ffffff"
+            d =>
+                d.data.isCollapsed
+                    ? d.data.color || "#10b981"
+                    : "#ffffff"
         )
         .attr(
             "opacity",
@@ -803,7 +871,7 @@ function renderCareerTreeView() {
         .append("text")
         .attr(
             "class",
-            "career-node-label"
+            "career-tree-node-label"
         )
         .attr(
             "x",
@@ -856,7 +924,7 @@ function renderCareerTreeView() {
         .append("text")
         .attr(
             "class",
-            "career-node-label"
+            "career-tree-node-subtitle"
         )
         .attr(
             "x",
@@ -902,6 +970,18 @@ function renderCareerTreeView() {
 
             event.stopPropagation();
 
+            /*
+             * Fold first: the re-render resets the panel to the
+             * root, so the node's own details go last.
+             */
+            if (
+                d.data.childCount > 0
+            ) {
+                toggleCareerBranch(
+                    d.data.nodeKey
+                );
+            }
+
             showCareerNodePanel(
                 d.data
             );
@@ -938,7 +1018,7 @@ function renderCareerTreeView() {
 
                 mainGroup
                     .selectAll(
-                        ".career-link"
+                        ".career-tree-link"
                     )
                     .attr(
                         "stroke-opacity",
@@ -979,7 +1059,7 @@ function renderCareerTreeView() {
 
                 mainGroup
                     .selectAll(
-                        ".career-link"
+                        ".career-tree-link"
                     )
                     .attr(
                         "stroke-opacity",
@@ -993,11 +1073,16 @@ function renderCareerTreeView() {
 
 
     /*
-     * Initial information panel
+     * Initial information panel. On a phone it fills the
+     * container, so there the tree is shown first and the reader
+     * opens details by tapping a node.
      */
-    showCareerNodePanel(
-        root.data
-    );
+    if (!isNarrow) {
+
+        showCareerNodePanel(
+            root.data
+        );
+    }
 
 
     /*
@@ -1010,11 +1095,7 @@ function renderCareerTreeView() {
                 svg,
                 mainGroup,
                 width,
-                height,
-                treeWidth,
-                treeHeight,
-                minX,
-                minY
+                height
             );
         }
     );
@@ -1026,7 +1107,7 @@ function renderCareerTreeView() {
     careerTreeZoom =
         d3.zoom()
             .scaleExtent([
-                0.35,
+                0.15,
                 2.5
             ])
             .on(
@@ -1054,47 +1135,57 @@ function fitCareerTree(
     svg,
     group,
     width,
-    height,
-    treeWidth,
-    treeHeight,
-    minX,
-    minY
+    height
 ) {
 
-    const padding = 70;
+    const groupNode =
+        group.node();
+
+    if (
+        !groupNode ||
+        !careerTreeZoom
+    ) {
+        return;
+    }
+
+    /*
+     * getBBox covers the labels too, which the node coordinates
+     * alone did not: the tree used to sit off-centre with its
+     * left-hand label clipped.
+     */
+    const box =
+        groupNode.getBBox();
+
+    const padding =
+        width < 640
+            ? 14
+            : 48;
 
     const scale =
         Math.min(
             (width - padding * 2) /
                 Math.max(
-                    treeWidth,
+                    box.width,
                     1
                 ),
 
             (height - padding * 2) /
                 Math.max(
-                    treeHeight,
+                    box.height,
                     1
                 ),
 
             1.1
         );
 
-    const translateX =
-        width / 2 -
-        scale *
-            (minY + treeWidth / 2);
-
-    const translateY =
-        height / 2 -
-        scale *
-            (minX + treeHeight / 2);
-
     const transform =
         d3.zoomIdentity
             .translate(
-                translateX,
-                translateY
+                width / 2 -
+                    scale * (box.x + box.width / 2),
+
+                height / 2 -
+                    scale * (box.y + box.height / 2)
             )
             .scale(
                 scale
@@ -1121,28 +1212,9 @@ function filterCareerTrack(
     activeCareerTrack =
         track;
 
-    document
-        .querySelectorAll(
-            ".career-track-btn"
-        )
-        .forEach(
-            button => {
-                button.classList.remove(
-                    "active"
-                );
-            }
-        );
-
-    const active =
-        document.getElementById(
-            `trackBtn${track}`
-        );
-
-    if (active) {
-        active.classList.add(
-            "active"
-        );
-    }
+    activateCareerTrackButton(
+        track
+    );
 
     renderCareerTreeView();
 }
@@ -1268,6 +1340,15 @@ function resetCareerTreeZoom() {
         return;
     }
 
+    const container =
+        document.getElementById(
+            "careerTreeContainer"
+        );
+
+    if (!container) {
+        return;
+    }
+
     const svg =
         d3.select(
             "#careerTreeSvg"
@@ -1276,24 +1357,15 @@ function resetCareerTreeZoom() {
     fitCareerTree(
         svg,
         svg.select("g"),
-        svg.node().clientWidth,
-        svg.node().clientHeight,
-        1,
-        1,
-        0,
-        0
+        container.clientWidth,
+        container.clientHeight
     );
 }
 
 
 function expandAllCareerTree() {
 
-    activeCareerTrack =
-        "ALL";
-
-    activateCareerTrackButton(
-        "ALL"
-    );
+    collapsedCareerNodes.clear();
 
     renderCareerTreeView();
 }
@@ -1302,39 +1374,29 @@ function expandAllCareerTree() {
 function collapseAllCareerTree() {
 
     /*
-     * The tree is static rather than a collapsible
-     * hierarchy, so "Restrânge" returns to the
-     * strategic overview.
+     * "Restrânge" folds every branch below the strategic
+     * directions, leaving the overview the reader starts from.
      */
-    activeCareerTrack =
-        "ALL";
+    collapsedCareerNodes.clear();
 
-    activateCareerTrackButton(
-        "ALL"
-    );
+    (careerTreeData.children || [])
+        .forEach(
+            direction => {
+
+                if (
+                    (direction.children || []).length
+                ) {
+                    collapsedCareerNodes.add(
+                        careerNodeKey(
+                            direction,
+                            careerTreeData.name
+                        )
+                    );
+                }
+            }
+        );
 
     renderCareerTreeView();
-
-    requestAnimationFrame(
-        () => {
-
-            if (
-                !careerTreeZoom
-            ) {
-                return;
-            }
-
-            d3.select(
-                "#careerTreeSvg"
-            )
-                .transition()
-                .duration(400)
-                .call(
-                    careerTreeZoom.transform,
-                    d3.zoomIdentity
-                );
-        }
-    );
 }
 
 
@@ -1349,7 +1411,7 @@ function activateCareerTrackButton(
         .forEach(
             button => {
                 button.classList.remove(
-                    "active"
+                    "is-active"
                 );
             }
         );
@@ -1361,7 +1423,7 @@ function activateCareerTrackButton(
 
     if (button) {
         button.classList.add(
-            "active"
+            "is-active"
         );
     }
 }
@@ -1421,6 +1483,24 @@ function escapeHtml(
             /'/g,
             "&#039;"
         );
+}
+
+
+/* ============================================================
+   ENTRY POINT
+   ============================================================
+
+   index.html calls initCareerTree() when the career view is
+   opened. Without it the view stayed an empty grey box.
+   ============================================================ */
+
+function initCareerTree() {
+
+    activateCareerTrackButton(
+        activeCareerTrack
+    );
+
+    renderCareerTreeView();
 }
 
 
