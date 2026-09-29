@@ -57,22 +57,22 @@
 
             <div class="flex items-center gap-2 sm:gap-4">
                 <!-- View Selector Toggle Buttons -->
-                <div class="hidden sm:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
-                    <button id="viewColBtn" onclick="setViewMode('columns')" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5">
+                <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+                    <button id="viewColBtn" onclick="setViewMode('columns')" class="px-2 sm:px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5">
                         <i class="fa-solid fa-columns"></i>
-                        <span>3-Coloane</span>
+                        <span class="hidden sm:inline">3-Coloane</span>
                     </button>
-                    <button id="viewStreamBtn" onclick="setViewMode('stream')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                    <button id="viewStreamBtn" onclick="setViewMode('stream')" class="px-2 sm:px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
                         <i class="fa-solid fa-bars-staggered"></i>
-                        <span>Cronologic</span>
+                        <span class="hidden sm:inline">Cronologic</span>
                     </button>
-                    <button id="viewGraphBtn" onclick="setViewMode('graph')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                    <button id="viewGraphBtn" onclick="setViewMode('graph')" class="px-2 sm:px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
                         <i class="fa-solid fa-circle-nodes text-blue-500"></i>
-                        <span>Hartă Conexiuni</span>
+                        <span class="hidden sm:inline">Hartă Conexiuni</span>
                     </button>
-                    <button id="viewCareerBtn" onclick="setViewMode('career')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
+                    <button id="viewCareerBtn" onclick="setViewMode('career')" class="px-2 sm:px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5">
                         <i class="fa-solid fa-diagram-project text-emerald-500"></i>
-                        <span>Arbore Cariere</span>
+                        <span class="hidden sm:inline">Arbore Cariere</span>
                     </button>
                 </div>
 
@@ -923,8 +923,9 @@
         let graphZoomBehavior = null;
         let isGraphPhysicsActive = true;
 
-        let careerTreeZoom = null;
-        let activeCareerTrack = 'ALL';
+        // Career tree state lives in career-tree.js; declaring it here as well
+        // threw "Identifier 'careerTreeZoom' has already been declared" and
+        // stopped that file from parsing at all.
 
         // INITIALIZATION
         window.addEventListener('DOMContentLoaded', () => {
@@ -1144,7 +1145,7 @@
 
             [colBtn, streamBtn, graphBtn, careerBtn].forEach(btn => {
                 if (btn) {
-                    btn.className = 'px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5';
+                    btn.className = 'px-2 sm:px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 transition-all flex items-center gap-1.5';
                 }
             });
 
@@ -1154,17 +1155,17 @@
 
             if (mode === 'columns') {
                 multiCol.classList.remove('hidden');
-                colBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+                colBtn.className = 'px-2 sm:px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
             } else if (mode === 'stream') {
                 stream.classList.remove('hidden');
-                streamBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+                streamBtn.className = 'px-2 sm:px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
             } else if (mode === 'graph') {
                 graph.classList.remove('hidden');
-                graphBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
+                graphBtn.className = 'px-2 sm:px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1.5';
                 applyFilters();
             } else if (mode === 'career') {
                 career.classList.remove('hidden');
-                careerBtn.className = 'px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 transition-all flex items-center gap-1.5';
+                careerBtn.className = 'px-2 sm:px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-emerald-600 dark:text-emerald-400 transition-all flex items-center gap-1.5';
                 if (typeof initCareerTree === 'function') {
                     requestAnimationFrame(() => initCareerTree());
                 }
