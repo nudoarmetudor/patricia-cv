@@ -289,7 +289,16 @@
             </div>
             <div id="graphContainer" class="w-full h-[600px] bg-slate-950/5 dark:bg-slate-950/40 rounded-xl relative overflow-hidden border border-slate-200/60 dark:border-slate-800">
                 <svg id="networkGraphSvg" class="w-full h-full"></svg>
-                <div id="graphTooltip" class="node-tooltip absolute hidden z-20 bg-slate-900 text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs"></div>
+                <div id="graphHoverTooltip" class="node-tooltip absolute opacity-0 z-20 bg-slate-900 text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs">
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <span id="tooltipBadge" class="text-[10px] font-bold uppercase tracking-wider text-blue-300"></span>
+                        <span id="tooltipDate" class="text-[10px] text-slate-400"></span>
+                    </div>
+                    <p id="tooltipTitle" class="font-bold leading-tight"></p>
+                    <p id="tooltipOrg" class="text-[11px] text-slate-300 leading-tight"></p>
+                    <p id="tooltipDesc" class="text-[11px] text-slate-400 mt-1 leading-snug"></p>
+                    <div id="tooltipTags" class="flex flex-wrap gap-1 mt-1.5"></div>
+                </div>
             </div>
         </div>
 
@@ -922,6 +931,7 @@
         let graphSimulation = null;
         let graphZoomBehavior = null;
         let isGraphPhysicsActive = true;
+        let graphHasFitted = false;
 
         // Career tree state lives in career-tree.js; declaring it here as well
         // threw "Identifier 'careerTreeZoom' has already been declared" and
@@ -1175,8 +1185,9 @@
         function renderGraphView(filteredItems) {
             const svg = d3.select("#networkGraphSvg");
             svg.selectAll("*").remove(); // Clear previous render
+            graphHasFitted = false;
 
-            const container = document.getElementById('graphCanvasContainer');
+            const container = document.getElementById('graphContainer');
             const width = container.clientWidth || 900;
             const height = container.clientHeight || 550;
 
@@ -1276,7 +1287,7 @@
 
             // Setup Zoom Behavior
             graphZoomBehavior = d3.zoom()
-                .scaleExtent([0.3, 3])
+                .scaleExtent([0.1, 3])
                 .on("zoom", (event) => {
                     g.attr("transform", event.transform);
                 });
@@ -1360,9 +1371,17 @@
             })
             .on("mousemove", function(event) {
                 const [mouseX, mouseY] = d3.pointer(event, container);
+                const box = tooltip.node().getBoundingClientRect();
+
                 tooltip
-                    .style("left", `${mouseX}px`)
-                    .style("top", `${mouseY - 15}px`);
+                    .style(
+                        "left",
+                        `${Math.max(8, Math.min(mouseX + 16, container.clientWidth - box.width - 8))}px`
+                    )
+                    .style(
+                        "top",
+                        `${Math.max(8, Math.min(mouseY + 16, container.clientHeight - box.height - 8))}px`
+                    );
             })
             .on("mouseout", function(event, d) {
                 // Reset link highlighting
@@ -1385,7 +1404,7 @@
             });
 
             // Simulation Tick Handler
-            graphSimulation.on("tick", () => {
+            function updateGraphPositions() {
                 link
                     .attr("x1", d => d.source.x)
                     .attr("y1", d => d.source.y)
@@ -1394,6 +1413,27 @@
 
                 node
                     .attr("transform", d => `translate(${d.x},${d.y})`);
+            }
+
+            graphSimulation.on("tick", updateGraphPositions);
+
+            // Settle the layout before the first paint, then frame the
+            // whole map. Left to animate, the reader spent the first few
+            // seconds looking at a corner of a graph that spreads well
+            // past the container.
+            graphSimulation.stop();
+
+            for (let i = 0; i < 300; i++) {
+                graphSimulation.tick();
+            }
+
+            updateGraphPositions();
+
+            requestAnimationFrame(() => {
+                if (!graphHasFitted) {
+                    graphHasFitted = true;
+                    fitGraphView();
+                }
             });
 
             // Drag behavior handlers
@@ -1415,18 +1455,57 @@
             }
         }
 
+        function fitGraphView() {
+            const container = document.getElementById('graphContainer');
+            const svg = d3.select("#networkGraphSvg");
+            const g = svg.select("g");
+
+            if (!graphZoomBehavior || !container || g.empty()) return;
+
+            const box = g.node().getBBox();
+            if (!box.width || !box.height) return;
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const padding = width < 640 ? 12 : 32;
+
+            const scale = Math.min(
+                (width - padding * 2) / box.width,
+                (height - padding * 2) / box.height,
+                1.1
+            );
+
+            const transform = d3.zoomIdentity
+                .translate(
+                    width / 2 - scale * (box.x + box.width / 2),
+                    height / 2 - scale * (box.y + box.height / 2)
+                )
+                .scale(scale);
+
+            svg.transition()
+                .duration(400)
+                .call(graphZoomBehavior.transform, transform);
+        }
+
+        // "Centrare" re-frames the map rather than snapping back to a
+        // 1:1 transform that showed only a corner of it.
         function resetGraphZoom() {
-            if (graphZoomBehavior) {
-                d3.select("#networkGraphSvg")
-                    .transition()
-                    .duration(500)
-                    .call(graphZoomBehavior.transform, d3.zoomIdentity);
-            }
+            fitGraphView();
         }
 
         function toggleGraphPhysics() {
             isGraphPhysicsActive = !isGraphPhysicsActive;
             const btn = document.getElementById('physicsBtn');
+            if (!btn) {
+                if (graphSimulation) {
+                    if (isGraphPhysicsActive) {
+                        graphSimulation.alpha(0.3).restart();
+                    } else {
+                        graphSimulation.stop();
+                    }
+                }
+                return;
+            }
             if (isGraphPhysicsActive) {
                 if (graphSimulation) graphSimulation.alpha(0.3).restart();
                 btn.innerHTML = '<i class="fa-solid fa-pause"></i> Fizică';
@@ -1489,11 +1568,14 @@
             setTimeout(() => toast.classList.add('hidden'), 2000);
         }
 
-        // Window Resize Handler for Graph
+        // Window Resize Handler for Graph. Debounced: a re-render now
+        // settles the layout synchronously, so firing it on every resize
+        // event would stutter.
+        let graphResizeTimer = null;
         window.addEventListener('resize', () => {
-            if (currentViewMode === 'graph') {
-                applyFilters();
-            }
+            if (currentViewMode !== 'graph') return;
+            clearTimeout(graphResizeTimer);
+            graphResizeTimer = setTimeout(() => applyFilters(), 150);
         });
     </script>
     <script src="career-tree.js"></script>
